@@ -24,6 +24,9 @@ printParser = Print <$> (string "print" >> many1 space >> many1 letter)
 assignParser :: Parser Statement
 assignParser = Assign <$> (many1 letter) <*> (many1 space >> char '=' >> many1 space >> (try intValParser <|> stringValParser))
 
+statementParser :: Parser Statement
+statementParser = try printParser <|> try assignParser
+
 main :: IO ()
 main = do
   print "Hello world"
