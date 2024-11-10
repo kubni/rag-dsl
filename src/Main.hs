@@ -1,7 +1,6 @@
 module Main where
 
 import Text.Parsec
-import qualified Text.Parsec as Parsec
 import Text.Parsec.String (Parser)
 
 type Code = [Statement]
@@ -27,6 +26,11 @@ assignParser = Assign <$> (many1 letter) <*> (many1 space >> char '=' >> many1 s
 statementParser :: Parser Statement
 statementParser = try printParser <|> try assignParser
 
+codeParser :: Parser Code
+codeParser = spaces >> many (statementParser <* many1 space) <* eof
+
 main :: IO ()
 main = do
-  print "Hello world"
+  codeStr <- readFile "data/code.txt"
+  let parsedCode = parse codeParser "" codeStr
+  print parsedCode
