@@ -25,7 +25,7 @@ boolValParser :: Parser Value
 boolValParser = BoolVal <$> ((True <$ string "True") <|> (False <$ string "False"))
 
 listValParser :: Parser Value
-listValParser = ListVal <$> (char '[' >> (((try intValParser <|> stringValParser) <* many space) `sepBy` (char ',' <* many space)) <* char ']')
+listValParser = ListVal <$> (char '[' >> ((valueParser <* many space) `sepBy` (char ',' <* many space)) <* char ']')
 
 valueParser :: Parser Value
 valueParser = try intValParser <|> boolValParser <|> stringValParser <|> listValParser
@@ -39,10 +39,38 @@ statementParser = try printParser <|> try assignParser
 codeParser :: Parser Code
 codeParser = spaces >> many (statementParser <* many1 space) <* eof
 
+type KeyValuePair = (String, Value)
+
+keyValueParser :: Parser KeyValuePair
+keyValueParser = (,) <$> (many1 letter <* many space) <*> (char ':' >> many space *> valueParser <* optional (char ','))
+
+type MetaValue = [KeyValuePair]
+
+metaValueParser :: Parser MetaValue
+metaValueParser =
+  (string "db" <|> string "model")
+    >> many1 space
+    >> many1 letter
+    >> many1 space
+    >> char '{'
+    >> keyValueParser `sepBy` (char ',' <* many space)
+
+type MetaBlock = [MetaValue]
+
+metaBlockParser :: Parser MetaBlock
+metaBlockParser =
+  string "meta"
+    >> many space
+    >> char '{'
+    >> many space
+    >> metaValueParser `sepBy` (char ',' <* many space)
+
 main :: IO ()
 main = do
   codeStr <- readFile "data/code.txt"
-  let parsedCode = parse codeParser "" codeStr
+  -- let parsedCode = parse codeParser "" codeStr
+  -- print parsedCode
+  let parsedCode = parse metaBlockParser "" codeStr
   print parsedCode
 
 -- TODO: Remove `try` everywhere where its not needed, because of possible performance impact.
