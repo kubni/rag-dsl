@@ -2,3 +2,6 @@ x = 5
 y = hello
 
 a = [42, world]
+
+
+b = True
