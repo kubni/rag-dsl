@@ -1,21 +1,15 @@
-meta {
-     db qdrant {
-       local: True,
-       url: 'my_url',
-       vector_parameters: {
-         size: 128,
-         distance_metric: cosine,
-         on_disk: True,
-         use_multivectors: True,
-         quantization: none | scalar | binary
-       },
-       collection: {
-         name: 'test_collection'
-         force_recreate: True
-       }
-     },
-
-     model colqwen {
-        on: 'gpu'
-     }
-}
+db qdrant {
+  local: True,
+  url: 'my_url',
+  vector_parameters: {
+    size: 128,
+    distance_metric: cosine,
+    on_disk: True,
+    use_multivectors: True,
+    quantization: none | scalar | binary
+  },
+  collection: {
+    name: 'test_collection'
+    force_recreate: True
+  }
+},

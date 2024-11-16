@@ -18,8 +18,11 @@ printParser = Print <$> (string "print" >> many1 space >> many1 letter)
 intValParser :: Parser Value
 intValParser = IntVal <$> (read <$> many1 digit)
 
+-- TODO: This allows strings like "123foo", which aren't supported in Python
+-- FIXME: This version doesn't work
 stringValParser :: Parser Value
-stringValParser = StringVal <$> many1 letter
+-- stringValParser = StringVal <$> ((char '"' <|> char '\'') >> many1 (noneOf "\"" <|> noneOf "\'") <* (char '"' <|> char '\''))
+stringValParser = StringVal <$> ((char '"' <|> char '\'') >> many (noneOf "\"'") <* (char '"' <|> char '\''))
 
 boolValParser :: Parser Value
 boolValParser = BoolVal <$> ((True <$ string "True") <|> (False <$ string "False"))
@@ -42,7 +45,7 @@ codeParser = spaces >> many (statementParser <* many1 space) <* eof
 type KeyValuePair = (String, Value)
 
 keyValueParser :: Parser KeyValuePair
-keyValueParser = (,) <$> (many1 letter <* many space) <*> (char ':' >> many space *> valueParser <* optional (char ','))
+keyValueParser = (,) <$> (many1 letter <* many space) <*> (char ':' >> many space *> valueParser)
 
 type MetaValue = [KeyValuePair]
 
@@ -53,7 +56,9 @@ metaValueParser =
     >> many1 letter
     >> many1 space
     >> char '{'
+    >> many space
     >> keyValueParser `sepBy` (char ',' <* many space)
+      <* char '}'
 
 type MetaBlock = [MetaValue]
 
@@ -63,14 +68,16 @@ metaBlockParser =
     >> many space
     >> char '{'
     >> many space
-    >> metaValueParser `sepBy` (char ',' <* many space)
+    >> (many space >> metaValueParser) `sepBy` (char ',' <* many space)
+      <* char '}'
 
 main :: IO ()
 main = do
   codeStr <- readFile "data/code.txt"
   -- let parsedCode = parse codeParser "" codeStr
   -- print parsedCode
-  let parsedCode = parse metaBlockParser "" codeStr
+  -- let parsedCode = parse metaBlockParser "" codeStr
+  let parsedCode = parse metaValueParser "" codeStr
   print parsedCode
 
 -- TODO: Remove `try` everywhere where its not needed, because of possible performance impact.
