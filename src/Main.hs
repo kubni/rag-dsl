@@ -34,7 +34,7 @@ listValParser :: Parser Value
 listValParser = ListVal <$> (char '[' >> ((valueParser <* many space) `sepBy` (char ',' <* many space)) <* char ']')
 
 dictValParser :: Parser Value
-dictValParser = DictVal <$> (char '{' >> many space >> keyValueParser `sepBy` (char ',' <* many space) <* char '}')
+dictValParser = DictVal <$> (char '{' >> many space >> keyValueParser `sepBy` (char ',' >> many space) <* char '}')
 
 valueParser :: Parser Value
 valueParser = try intValParser <|> boolValParser <|> stringValParser <|> listValParser <|> dictValParser
@@ -51,7 +51,7 @@ codeParser = spaces >> many (statementParser <* many1 space) <* eof
 type KeyValuePair = (String, Value)
 
 keyValueParser :: Parser KeyValuePair
-keyValueParser = (,) <$> (allowedStringParser <* many space) <*> (char ':' >> many space *> valueParser)
+keyValueParser = (,) <$> (allowedStringParser <* many space) <*> ((char ':' >> many space *> valueParser) <* many space)
 
 type MetaValue = [KeyValuePair]
 
@@ -63,7 +63,8 @@ metaValueParser =
     >> many1 space
     >> char '{'
     >> many space
-    >> keyValueParser `sepBy` (char ',' <* many space)
+    >> keyValueParser `sepBy` (many space >> char ',' >> many space)
+      <* many space
       <* char '}'
 
 type MetaBlock = [MetaValue]
@@ -74,7 +75,8 @@ metaBlockParser =
     >> many space
     >> char '{'
     >> many space
-    >> (many space >> metaValueParser) `sepBy` (char ',' <* many space)
+    >> (many space >> metaValueParser <* many space) `sepBy` (many space >> char ',' >> many space)
+      <* many space
       <* char '}'
 
 main :: IO ()
@@ -83,7 +85,7 @@ main = do
   -- let parsedCode = parse codeParser "" codeStr
   -- print parsedCode
   -- let parsedCode = parse metaBlockParser "" codeStr
-  let parsedCode = parse metaValueParser "" codeStr
+  let parsedCode = parse metaBlockParser "" codeStr
   print parsedCode
 
 {-- TODO:

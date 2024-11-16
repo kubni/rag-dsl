@@ -1,15 +1,17 @@
-db qdrant {
-  local: True,
-  url: 'my_url',
-  vector_parameters: {
-    size: 128,
-    distance_metric: 'cosine',
-    on_disk: True,
-    use_multivectors: True,
-    quantization: 'scalar'
-  },
-  collection: {
-    name: 'test_collection'
-    force_recreate: True,
+meta {
+  db qdrant {
+    local: True,
+    url: 'my_url',
+    vector_parameters: {
+      size: 128,
+      distance_metric: 'cosine',
+      on_disk: True,
+      use_multivectors: True,
+      quantization: 'scalar'
+    },
+    collection: {
+      name: 'test_collection',
+      force_recreate: True
+    }
   }
-},
+}
