@@ -1,4 +1,4 @@
-module MyCodegen (keyValuePairToString, valueToPython, statementToPython) where
+module MyCodegen where
 
 import Data.List (intercalate)
 import MyParser (KeyValuePair, Statement (..), Value (..))
@@ -9,7 +9,7 @@ keyValuePairToString (k, v) = k ++ ": " ++ valueToPython v
 valueToPython :: Value -> String
 valueToPython value = case value of
   IntVal v -> show v
-  StringVal v -> v
+  StringVal v -> "'" ++ v ++ "'"
   BoolVal v -> show v
   ListVal l -> "[" ++ intercalate ", " (map valueToPython l) ++ "]"
   DictVal d -> "{" ++ intercalate ", " (map keyValuePairToString d) ++ "}"
