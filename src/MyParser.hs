@@ -1,4 +1,13 @@
-module MyParser (Text.Parsec.parse, codeParser, metaBlockParser) where
+module MyParser
+  ( Text.Parsec.parse,
+    codeParser,
+    metaBlockParser,
+    Code,
+    KeyValuePair,
+    Value (..),
+    Statement (..),
+  )
+where
 
 import GHC.Base (List)
 import Text.Parsec
