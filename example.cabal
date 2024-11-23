@@ -12,6 +12,9 @@ common warnings
 executable example
     import:           warnings
     main-is:          Main.hs
+    other-modules:
+        MyParser,
+        MyCodegen
     build-depends:
         base,
         parsec
