@@ -59,19 +59,24 @@ type KeyValuePair = (String, Value)
 keyValueParser :: Parser KeyValuePair
 keyValueParser = (,) <$> (allowedStringParser <* many space) <*> ((char ':' >> many space *> valueParser) <* many space)
 
-type MetaValue = [KeyValuePair]
+type MetaHeader = (String, String)
+
+metaHeaderParser :: Parser MetaHeader
+metaHeaderParser = (,) <$> (string "db" <|> string "model") <*> (many1 space >> many1 letter <* many space)
+
+type MetaValue = (MetaHeader, [KeyValuePair])
 
 metaValueParser :: Parser MetaValue
 metaValueParser =
-  (string "db" <|> string "model")
-    >> many1 space
-    >> many1 letter
-    >> many1 space
-    >> char '{'
-    >> many space
-    >> keyValueParser `sepBy` (many space >> char ',' >> many space)
-      <* many space
-      <* char '}'
+  (,)
+    <$> metaHeaderParser
+    <*> ( many space
+            >> char '{'
+            >> many space
+            >> keyValueParser `sepBy` (many space >> char ',' >> many space)
+              <* many space
+              <* char '}'
+        )
 
 type MetaBlock = [MetaValue]
 
