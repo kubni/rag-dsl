@@ -7,7 +7,7 @@ meta {
       distance_metric: 'cosine',
       on_disk: True,
       use_multivectors: True,
-      quantization: 'scalar'
+      quantization: 'binary'
     },
     collection: {
       name: 'test_collection',
