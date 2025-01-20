@@ -6,6 +6,8 @@ module MyParser
     KeyValuePair,
     Value (..),
     Statement (..),
+    MetaValue,
+    MetaHeader,
   )
 where
 

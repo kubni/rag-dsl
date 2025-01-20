@@ -1,7 +1,7 @@
 module MyCodegen where
 
 import Data.List (intercalate)
-import MyParser (KeyValuePair, Statement (..), Value (..))
+import MyParser (KeyValuePair, MetaHeader, MetaValue, Statement (..), Value (..))
 
 keyValuePairToString :: KeyValuePair -> String
 keyValuePairToString (k, v) = k ++ ": " ++ valueToPython v
@@ -33,3 +33,17 @@ generateNecessarySetups =
     "\tcolqwen_processor = ColQwen2Processor.from_pretrained(pretrained_model_name_or_path=model_name)",
     "\treturn colqwen_model, colqwen_processor"
   ]
+
+processMetaValue :: MetaValue -> [String]
+processMetaValue (header, keyValuePairs) = case fst header of
+  "model" -> ["err: model header not yet implemented"]
+  "db" -> case snd header of
+    "qdrant" -> generateQdrant keyValuePairs
+
+generateQdrant :: [KeyValuePair]
+
+{-
+TODO:
+   1) Create Python types here (it will all come down to String or [String], but for the sake of easier indentation care maybe?)
+   1) Something like MetaHeader -> [String], based on the header ((db, qdrant) for example) it could know how to parse the MetaValue that comes after
+-}
