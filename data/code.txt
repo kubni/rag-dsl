@@ -13,5 +13,10 @@ meta {
       name: 'test_collection',
       force_recreate: True
     }
+  },
+  db qdrant {
+    local: False,
+    url: 'hello_world'
   }
+
 }
