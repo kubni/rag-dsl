@@ -1,30 +1,32 @@
 module MyParser
   ( Text.Parsec.parse,
-    codeParser,
-    metaBlockParser,
-    Code,
+    -- codeParser,
+    dslParser,
+    -- Code,
     KeyValuePair,
     Value (..),
-    Statement (..),
+    -- Statement (..),
     MetaValue,
     MetaHeader,
   )
 where
 
-import GHC.Base (List)
+import Data.List (List)
 import Text.Parsec
+    ( char,
+      digit,
+      letter,
+      space,
+      string,
+      sepBy,
+      (<|>),
+      many,
+      many1,
+      parse,
+      try )
 import Text.Parsec.String (Parser)
 
-type Code = [Statement]
-
-type Var = String
-
-data Statement = Print Var | Assign Var Value deriving (Eq, Show)
-
 data Value = IntVal Int | StringVal String | BoolVal Bool | ListVal (List Value) | DictVal (List KeyValuePair) deriving (Eq, Show)
-
-printParser :: Parser Statement
-printParser = Print <$> (string "print" >> many1 space >> many1 letter)
 
 intValParser :: Parser Value
 intValParser = IntVal <$> (read <$> many1 digit)
@@ -46,15 +48,6 @@ dictValParser = DictVal <$> (char '{' >> many space >> keyValueParser `sepBy` (c
 
 valueParser :: Parser Value
 valueParser = try intValParser <|> boolValParser <|> stringValParser <|> listValParser <|> dictValParser
-
-assignParser :: Parser Statement
-assignParser = Assign <$> (many1 letter) <*> (many1 space >> char '=' >> many1 space >> valueParser)
-
-statementParser :: Parser Statement
-statementParser = try printParser <|> try assignParser
-
-codeParser :: Parser Code
-codeParser = spaces >> many (statementParser <* many1 space) <* eof
 
 type KeyValuePair = (String, Value)
 
@@ -80,17 +73,26 @@ metaValueParser =
               <* char '}'
         )
 
-type MetaBlock = [MetaValue]
+-- type MetaBlock = [MetaValue]
 
-metaBlockParser :: Parser MetaBlock
-metaBlockParser =
-  string "meta"
-    >> many space
-    >> char '{'
-    >> many space
-    >> (many space >> metaValueParser <* many space) `sepBy` (many space >> char ',' >> many space)
-      <* many space
-      <* char '}'
+-- metaBlockParser :: Parser MetaBlock
+-- metaBlockParser =
+--   string "meta"
+--     >> many space
+--     >> char '{'
+--     >> many space
+--     >> (many space >> metaValueParser <* many space) `sepBy` (many space >> char ',' >> many space)
+--       <* many space
+--       <* char '}'
+
+dslParser :: Parser [MetaValue]
+dslParser =
+  many space
+  >> char '{'
+  >> many space
+  >> (many space >> metaValueParser <* many space) `sepBy` (many space >> char ',' >> many space)
+  <* many space
+  <* char '}'
 
 {-- TODO:
           1) Remove `try` everywhere where its not needed, because of possible performance impact.
