@@ -73,26 +73,10 @@ metaValueParser =
               <* char '}'
         )
 
--- type MetaBlock = [MetaValue]
-
--- metaBlockParser :: Parser MetaBlock
--- metaBlockParser =
---   string "meta"
---     >> many space
---     >> char '{'
---     >> many space
---     >> (many space >> metaValueParser <* many space) `sepBy` (many space >> char ',' >> many space)
---       <* many space
---       <* char '}'
-
 dslParser :: Parser [MetaValue]
 dslParser =
-  many space
-  >> char '{'
-  >> many space
-  >> (many space >> metaValueParser <* many space) `sepBy` (many space >> char ',' >> many space)
+  (many space >> metaValueParser <* many space) `sepBy` (many space >> char ',' >> many space)
   <* many space
-  <* char '}'
 
 {-- TODO:
           1) Remove `try` everywhere where its not needed, because of possible performance impact.

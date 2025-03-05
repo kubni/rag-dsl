@@ -1,6 +1,6 @@
 module Main where
 
-import MyCodegen (processMetaValue)
+import MyCodegen (codegen)
 import MyParser (dslParser, parse)
 
 main :: IO ()
@@ -9,4 +9,4 @@ main = do
   let parsedCode = parse dslParser "" codeStr -- type: [MetaValue]
   case parsedCode of
     Left msg -> print msg -- TODO: Handle this better
-    Right metaBlock -> print $ processMetaValue <$> metaBlock
+    Right metaBlock -> print $ codegen metaBlock

@@ -1,6 +1,6 @@
 module MyCodegen where
 
-import Data.List (intercalate)
+import Data.List (intercalate, intersperse, find)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import MyParser (KeyValuePair, MetaHeader, MetaValue, Value (..))
@@ -22,13 +22,71 @@ valueToPython value = case value of
 generateNecessaryImports :: [String]
 generateNecessaryImports = ["from colpali_engine.models import ColQwen2, ColQwen2Processor", "from pdf2image import convert_from_path", "from minio import Minio", "import base64", "import torch"]
 
--- FIXME: Handle \t and \n inside of the strings
-generateNecessarySetups :: [String]
-generateNecessarySetups =
-  [ "def setup_colqwen(model_name: str, device: str) -> Tuple[PreTrainedModel, Colqwen2ProcessorAliasType]:",
-    "    colqwen_model = ColQwen2.from_pretrained(pretrained_model_name_or_path=model_name,torch_dtype=torch.bfloat16,device_map=device)",
-    "    colqwen_processor = ColQwen2Processor.from_pretrained(pretrained_model_name_or_path=model_name)",
-    "    return colqwen_model, colqwen_processor"
+
+
+
+
+-- def setup_qdrant():
+--     qdrant_client = QdrantClient(url="http://localhost:6333")
+
+--     # Mean pooling
+--     vector_params_mean = models.VectorParams(
+--         size=128,
+--         distance=models.Distance.COSINE,
+--         multivector_config=models.MultiVectorConfig(
+--             comparator=models.MultiVectorComparator.MAX_SIM
+--         ),
+--     )
+
+--     # NOTE: Test without quantization and without hnsw index for original vectors
+--     vector_params_original = models.VectorParams(
+--         size=128,
+--         distance=models.Distance.COSINE,
+--         # on_disk=True,
+--         multivector_config=models.MultiVectorConfig(
+--             comparator=models.MultiVectorComparator.MAX_SIM
+--         ),
+--         hnsw_config=models.HnswConfigDiff(m=0),
+--     )
+
+--     return qdrant_client, vector_params_original, vector_params_mean
+
+
+
+
+
+
+
+
+
+generateNecessarySetups :: [MetaValue] -> [[String]]
+generateNecessarySetups mvs =
+  [
+    [
+      "def setup_colqwen(model_name: str, device: str):",
+      "    colqwen_model = ColQwen2.from_pretrained(pretrained_model_name_or_path=model_name,torch_dtype=torch.bfloat16,device_map=device)",
+      "    colqwen_processor = ColQwen2Processor.from_pretrained(pretrained_model_name_or_path=model_name)",
+      "    return colqwen_model, colqwen_processor"
+    ]
+  ]
+  ++ [
+       case find (\(header, _) -> snd header == "qdrant") mvs of
+        Just qdrantMetaValue -> generateQdrantSetup qdrantMetaValue
+        Nothing              -> ["Error: No Qdrant meta value found"] -- TODO: Handle this properly
+     ]
+
+generateQdrantSetup :: MetaValue -> [String]
+generateQdrantSetup (_, keyValuePairs) =
+  let dict = Map.fromList keyValuePairs
+  in
+  [
+    "def setup_qdrant():",
+    "    qdrant_client = QdrantClient(url=" ++ show (dict Map.! "url") ++ ")",
+    "    vector_params = models.VectorParams(",
+    "        size=" ++ show (dict Map.! "size") ++ "),",
+    "        distance=" ++ show (dict Map.! "distance") ++ "),",
+             if (dict Map.! "use_multivectors" == (BoolVal True)) then "        multivector_config=models.MultiVectorConfig(comparator=models.MultiVectorComparator.MAX_SIM)," else ""
+    -- "        quantization= -- TODO: Process the quantization option.... Needs additional processing for cases where model outputs embeddings with len < 768, because binary quant. isn't good for those...
   ]
 
 processMetaValue :: MetaValue -> [String]
@@ -39,3 +97,7 @@ processMetaValue (header, keyValuePairs) = case fst header of
     "qdrant" -> [valueToPython (DictVal keyValuePairs)] -- FIXME: We don't check the validity of fields here at all
     _ -> ["[processMetaValue] error: unimplemented"]
   _ -> ["[processMetaValue] error: unimplemented"]
+
+
+codegen :: [MetaValue] -> [String]
+codegen parsedDslCode = (intersperse "\n" generateNecessaryImports) ++ (concat $ intersperse ["\n\n"] (generateNecessarySetups parsedDslCode)) ++ (concat $ processMetaValue <$> parsedDslCode)
