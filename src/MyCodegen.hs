@@ -1,10 +1,11 @@
 module MyCodegen where
 
+import Debug.Trace (trace)
+
 import Data.List (intercalate, intersperse, find)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import MyParser (KeyValuePair, MetaHeader, MetaValue, Value (..))
-
 keyValuePairToString :: KeyValuePair -> String
 keyValuePairToString (k, v) = k ++ ": " ++ valueToPython v
 
@@ -38,7 +39,6 @@ generateNecessaryImports = ["from colpali_engine.models import ColQwen2, ColQwen
 --         ),
 --     )
 
---     # NOTE: Test without quantization and without hnsw index for original vectors
 --     vector_params_original = models.VectorParams(
 --         size=128,
 --         distance=models.Distance.COSINE,
@@ -72,22 +72,28 @@ generateNecessarySetups mvs =
   ++ [
        case find (\(header, _) -> snd header == "qdrant") mvs of
         Just qdrantMetaValue -> generateQdrantSetup qdrantMetaValue
-        Nothing              -> ["Error: No Qdrant meta value found"] -- TODO: Handle this properly
+        Nothing              -> error "Error: No Qdrant meta value found" -- TODO: Handle this properly
      ]
 
 generateQdrantSetup :: MetaValue -> [String]
 generateQdrantSetup (_, keyValuePairs) =
   let dict = Map.fromList keyValuePairs
   in
-  [
-    "def setup_qdrant():",
-    "    qdrant_client = QdrantClient(url=" ++ show (dict Map.! "url") ++ ")",
-    "    vector_params = models.VectorParams(",
-    "        size=" ++ show (dict Map.! "size") ++ "),",
-    "        distance=" ++ show (dict Map.! "distance") ++ "),",
-             if (dict Map.! "use_multivectors" == (BoolVal True)) then "        multivector_config=models.MultiVectorConfig(comparator=models.MultiVectorComparator.MAX_SIM)," else ""
-    -- "        quantization= -- TODO: Process the quantization option.... Needs additional processing for cases where model outputs embeddings with len < 768, because binary quant. isn't good for those...
-  ]
+      -- vp = dict Map.! "vector_parameters"
+    [
+      "def setup_qdrant():",
+      "    qdrant_client = QdrantClient(url=" ++ show (dict Map.! "url") ++ ")",
+      case lookup "vector_parameters" keyValuePairs of
+        Just (DictVal vpPairs) ->
+          let vpMap = Map.fromList vpPairs
+          in
+            -- TODO: Handle \n
+              "    vector_params = models.VectorParams(\n"
+              ++ "        size=" ++ show (vpMap Map.! "size") ++ "),\n"
+              ++ "        distance=" ++ show (vpMap Map.! "distance_metric") ++ "),\n"
+              ++        if (vpMap Map.! "use_multivectors" == (BoolVal True)) then "        multivector_config=models.MultiVectorConfig(comparator=models.MultiVectorComparator.MAX_SIM)" else ""
+        _ -> error "Missing 'vector_parameters'"
+    ]
 
 processMetaValue :: MetaValue -> [String]
 processMetaValue (header, keyValuePairs) = case fst header of
