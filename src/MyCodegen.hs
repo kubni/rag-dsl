@@ -62,6 +62,7 @@ generateNecessaryImports = ["from colpali_engine.models import ColQwen2, ColQwen
 generateNecessarySetups :: [MetaValue] -> [[String]]
 generateNecessarySetups mvs =
   [
+    intersperse "\n"
     [
       "def setup_colqwen(model_name: str, device: str):",
       "    colqwen_model = ColQwen2.from_pretrained(pretrained_model_name_or_path=model_name,torch_dtype=torch.bfloat16,device_map=device)",
@@ -79,7 +80,7 @@ generateQdrantSetup :: MetaValue -> [String]
 generateQdrantSetup (_, keyValuePairs) =
   let dict = Map.fromList keyValuePairs
   in
-      -- vp = dict Map.! "vector_parameters"
+    intersperse "\n"
     [
       "def setup_qdrant():",
       "    qdrant_client = QdrantClient(url=" ++ show (dict Map.! "url") ++ ")",
@@ -88,10 +89,12 @@ generateQdrantSetup (_, keyValuePairs) =
           let vpMap = Map.fromList vpPairs
           in
             -- TODO: Handle \n
-              "    vector_params = models.VectorParams(\n"
-              ++ "        size=" ++ show (vpMap Map.! "size") ++ "),\n"
-              ++ "        distance=" ++ show (vpMap Map.! "distance_metric") ++ "),\n"
-              ++        if (vpMap Map.! "use_multivectors" == (BoolVal True)) then "        multivector_config=models.MultiVectorConfig(comparator=models.MultiVectorComparator.MAX_SIM)" else ""
+            intercalate "\n"  [
+              "    vector_params = models.VectorParams(",
+              "        size=" ++ show (vpMap Map.! "size") ++ "),",
+              "        distance=" ++ show (vpMap Map.! "distance_metric") ++ "),",
+                       if (vpMap Map.! "use_multivectors" == (BoolVal True)) then "        multivector_config=models.MultiVectorConfig(comparator=models.MultiVectorComparator.MAX_SIM))" else ")"
+            ]
         _ -> error "Missing 'vector_parameters'"
     ]
 
@@ -106,4 +109,9 @@ processMetaValue (header, keyValuePairs) = case fst header of
 
 
 codegen :: [MetaValue] -> [String]
-codegen parsedDslCode = (intersperse "\n" generateNecessaryImports) ++ (concat $ intersperse ["\n\n"] (generateNecessarySetups parsedDslCode)) ++ (concat $ processMetaValue <$> parsedDslCode)
+-- codegen parsedDslCode = (intersperse "\n" generateNecessaryImports)
+codegen parsedDslCode = (intersperse "\n" generateNecessaryImports)
+  ++ ["\n\n"]
+  ++ (concat $ intersperse ["\n\n"] (generateNecessarySetups parsedDslCode))
+  ++ ["\n\n"]
+  ++ (concat $ processMetaValue <$> parsedDslCode)
