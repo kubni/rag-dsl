@@ -58,9 +58,8 @@ generateNecessaryImports = ["from colpali_engine.models import ColQwen2, ColQwen
 
 
 
-
-generateNecessarySetups :: [MetaValue] -> [[String]]
-generateNecessarySetups mvs =
+generateNecessarySetups :: [(MetaHeader, Map String Value)] -> [[String]]
+generateNecessarySetups metaValues =
   [
     intersperse "\n"
     [
@@ -71,33 +70,50 @@ generateNecessarySetups mvs =
     ]
   ]
   ++ [
-       case find (\(header, _) -> snd header == "qdrant") mvs of
-        Just qdrantMetaValue -> generateQdrantSetup qdrantMetaValue
+       case find (\(header, _) -> snd header == "qdrant") metaValues of
+        Just (_, keyValuePairsMap) -> generateQdrantSetup keyValuePairsMap
         Nothing              -> error "Error: No Qdrant meta value found" -- TODO: Handle this properly
      ]
 
-generateQdrantSetup :: MetaValue -> [String]
-generateQdrantSetup (_, keyValuePairs) =
-  let dict = Map.fromList keyValuePairs
-  in
+
+
+
+
+
+
+-- TODO: Extract actual values out of StringVal, IntVal, BoolVal, ...
+generateQdrantSetup :: Map String Value -> [String]
+generateQdrantSetup pairsMap =
+  -- TODO: lookup instead of Map.fromList for better complexity if we only do `dict Map.!` a couple of times?
     intersperse "\n"
     [
       "def setup_qdrant():",
-      "    qdrant_client = QdrantClient(url=" ++ show (dict Map.! "url") ++ ")",
-      case lookup "vector_parameters" keyValuePairs of
-        Just (DictVal vpPairs) ->
-          let vpMap = Map.fromList vpPairs
-          in
-            -- TODO: Handle \n
-            intercalate "\n"  [
-              "    vector_params = models.VectorParams(",
-              "        size=" ++ show (vpMap Map.! "size") ++ "),",
-              "        distance=" ++ show (vpMap Map.! "distance_metric") ++ "),",
-                       if (vpMap Map.! "use_multivectors" == (BoolVal True)) then "        multivector_config=models.MultiVectorConfig(comparator=models.MultiVectorComparator.MAX_SIM))" else ")"
-            ]
-        _ -> error "Missing 'vector_parameters'"
+      "    qdrant_client = QdrantClient(url=" ++ show (pairsMap Map.! "url") ++ ")",
+      generateQdrantVectorParameters pairsMap,
+      "    return qdrant_client, vector_params"
     ]
 
+
+generateQdrantVectorParameters :: Map String Value -> String
+generateQdrantVectorParameters pairsDict =
+  case pairsDict Map.! "vector_parameters" of
+    DictVal vp ->
+      let vpMap = Map.fromList vp
+      in
+        intercalate "\n"  [
+          "    vector_params = models.VectorParams(",
+          "        size=" ++ show (vpMap Map.! "size") ++ "),",
+          "        distance=" ++ show (vpMap Map.! "distance_metric") ++ "),",
+          "        on_disk=" ++ show (vpMap Map.! "on_disk") ++ "),",
+                  if (vpMap Map.! "use_multivectors" == (BoolVal True)) then "        multivector_config=models.MultiVectorConfig(comparator=models.MultiVectorComparator.MAX_SIM)" else "",
+          "    )"
+        ]
+    _ -> error "Error: Vector parameters isn't a map!"
+
+
+
+
+-- TODO: Unneeded, remove?
 processMetaValue :: MetaValue -> [String]
 processMetaValue (header, keyValuePairs) = case fst header of
   "model" -> ["err: model header not yet implemented"]
@@ -110,8 +126,17 @@ processMetaValue (header, keyValuePairs) = case fst header of
 
 codegen :: [MetaValue] -> [String]
 -- codegen parsedDslCode = (intersperse "\n" generateNecessaryImports)
-codegen parsedDslCode = (intersperse "\n" generateNecessaryImports)
-  ++ ["\n\n"]
-  ++ (concat $ intersperse ["\n\n"] (generateNecessarySetups parsedDslCode))
-  ++ ["\n\n"]
-  ++ (concat $ processMetaValue <$> parsedDslCode)
+-- TODO: intersperse ["\n\n"]
+codegen parsedDslCode =
+  let zip_test = zip (fst <$> parsedDslCode) (Map.fromList . snd <$> parsedDslCode)
+  in
+    (intersperse "\n" generateNecessaryImports)
+    ++ ["\n\n"]
+    ++ (concat $ intersperse ["\n\n"] (generateNecessarySetups zip_test))
+    ++ ["\n\n"]
+    -- ++ (intersperse "\n" generateCollection keyValuePairDicts)
+    -- ++ (concat $ processMetaValue <$> keyValuePairDicts)
+
+
+
+-- TODO: Maybe we can make MetaValue' that is like MetaValue but with [KeyValuePair] actually being a Map?
