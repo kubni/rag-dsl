@@ -24,40 +24,6 @@ generateNecessaryImports :: [String]
 generateNecessaryImports = ["from colpali_engine.models import ColQwen2, ColQwen2Processor", "from pdf2image import convert_from_path", "from minio import Minio", "import base64", "import torch"]
 
 
-
-
-
--- def setup_qdrant():
---     qdrant_client = QdrantClient(url="http://localhost:6333")
-
---     # Mean pooling
---     vector_params_mean = models.VectorParams(
---         size=128,
---         distance=models.Distance.COSINE,
---         multivector_config=models.MultiVectorConfig(
---             comparator=models.MultiVectorComparator.MAX_SIM
---         ),
---     )
-
---     vector_params_original = models.VectorParams(
---         size=128,
---         distance=models.Distance.COSINE,
---         # on_disk=True,
---         multivector_config=models.MultiVectorConfig(
---             comparator=models.MultiVectorComparator.MAX_SIM
---         ),
---         hnsw_config=models.HnswConfigDiff(m=0),
---     )
-
---     return qdrant_client, vector_params_original, vector_params_mean
-
-
-
-
-
-
-
-
 generateNecessarySetups :: [(MetaHeader, Map String Value)] -> [[String]]
 generateNecessarySetups metaValues =
   [
@@ -76,15 +42,9 @@ generateNecessarySetups metaValues =
      ]
 
 
-
-
-
-
-
 -- TODO: Extract actual values out of StringVal, IntVal, BoolVal, ...
 generateQdrantSetup :: Map String Value -> [String]
 generateQdrantSetup pairsMap =
-  -- TODO: lookup instead of Map.fromList for better complexity if we only do `dict Map.!` a couple of times?
     intersperse "\n"
     [
       "def setup_qdrant():",
@@ -102,9 +62,9 @@ generateQdrantVectorParameters pairsDict =
       in
         intercalate "\n"  [
           "    vector_params = models.VectorParams(",
-          "        size=" ++ show (vpMap Map.! "size") ++ "),",
-          "        distance=" ++ show (vpMap Map.! "distance_metric") ++ "),",
-          "        on_disk=" ++ show (vpMap Map.! "on_disk") ++ "),",
+          "        size=" ++ show (vpMap Map.! "size") ++ ",",
+          "        distance=" ++ show (vpMap Map.! "distance_metric") ++ ",",
+          "        on_disk=" ++ show (vpMap Map.! "on_disk") ++ ",",
                   if (vpMap Map.! "use_multivectors" == (BoolVal True)) then "        multivector_config=models.MultiVectorConfig(comparator=models.MultiVectorComparator.MAX_SIM)" else "",
           "    )"
         ]
@@ -114,29 +74,83 @@ generateQdrantVectorParameters pairsDict =
 
 
 -- TODO: Unneeded, remove?
-processMetaValue :: MetaValue -> [String]
-processMetaValue (header, keyValuePairs) = case fst header of
-  "model" -> ["err: model header not yet implemented"]
-  "db" -> case snd header of
-    -- "qdrant" -> generateQdrant keyValuePairs
-    "qdrant" -> [valueToPython (DictVal keyValuePairs)] -- FIXME: We don't check the validity of fields here at all
-    _ -> ["[processMetaValue] error: unimplemented"]
-  _ -> ["[processMetaValue] error: unimplemented"]
+-- processMetaValue :: MetaValue -> [String]
+-- processMetaValue (header, keyValuePairs) = case fst header of
+--   "model" -> ["err: model header not yet implemented"]
+--   "db" -> case snd header of
+--     -- "qdrant" -> generateQdrant keyValuePairs
+--     "qdrant" -> [valueToPython (DictVal keyValuePairs)] -- FIXME: We don't check the validity of fields here at all
+--     _ -> ["[processMetaValue] error: unimplemented"]
+--   _ -> ["[processMetaValue] error: unimplemented"]
+
+
+
+-- if flag_force_create_and_index_collection:
+--         qdrant_client.delete_collection(collection_name=collection_name)
+--         qdrant_client.create_collection(
+--             collection_name=collection_name,
+--             shard_number=1,
+--             on_disk_payload=False,
+--             optimizers_config=models.OptimizersConfigDiff(
+--                 indexing_threshold=0,
+--             ),
+--             vectors_config={
+--                 "initial": vector_params_original,
+--                 "mean_pooling_rows": vector_params_mean,
+--                 "mean_pooling_columns": vector_params_mean,
+--             },
+--         )
+
+
+
+
+
+generateCollection :: Map String Value -> String
+generateCollection pairsDict =
+  case pairsDict Map.! "collection_parameters" of
+    DictVal cp ->
+      let cpMap = Map.fromList cp
+          doForceRecreate = cpMap Map.! "force_recreate"
+          collectionName = cpMap Map.! "collection_name"
+      in
+        intercalate "\n"  [
+          "    collection_name = " ++ show collectionName,
+          "    flag_force_recreate = " ++ show doForceRecreate,
+          "    if flag_force_recreate:",
+          if doForceRecreate == (BoolVal True) then "    qdrant_client.delete_collection(collection_name=" ++ show collectionName ++ ")" else "",
+          "qdrant_client.create_collection(",
+          "    collection_name=" ++ show collectionName ++ ",",
+          "    shard_number=1,",
+          "    on_disk_payload=False,",
+          "    optimizers_config=models.OptimizersConfigDiff(",
+          "        indexing_threshold=0,",
+          "    ),",
+          "    vectors_config={",
+          "        \"initial\": vector_params_original,",
+          "        \"mean_pooling_rows\": vector_params_mean,",
+          "        \"mean_pooling_columns\": vector_params_mean,",
+          "    },",
+          ")"
+
+        ]
+    _ -> error "Error: Vector parameters isn't a map!"
 
 
 codegen :: [MetaValue] -> [String]
 -- codegen parsedDslCode = (intersperse "\n" generateNecessaryImports)
 -- TODO: intersperse ["\n\n"]
 codegen parsedDslCode =
-  let zip_test = zip (fst <$> parsedDslCode) (Map.fromList . snd <$> parsedDslCode)
+  let parsedCodeWithMaps = zip (fst <$> parsedDslCode) (Map.fromList . snd <$> parsedDslCode)
   in
     (intersperse "\n" generateNecessaryImports)
     ++ ["\n\n"]
-    ++ (concat $ intersperse ["\n\n"] (generateNecessarySetups zip_test))
+    ++ (concat $ intersperse ["\n\n"] (generateNecessarySetups parsedCodeWithMaps))
     ++ ["\n\n"]
-    -- ++ (intersperse "\n" generateCollection keyValuePairDicts)
+    ++ (intersperse "\n" generateCollection parsedCodeWithMaps)
     -- ++ (concat $ processMetaValue <$> keyValuePairDicts)
 
 
 
 -- TODO: Maybe we can make MetaValue' that is like MetaValue but with [KeyValuePair] actually being a Map?
+
+-- TODO: Indent with some function that manipulates strings, not by hand

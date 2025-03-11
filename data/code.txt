@@ -8,7 +8,7 @@ db qdrant {
     use_multivectors: True,
     quantization: 'binary'
   },
-  collection: {
+  collection_parameters: {
     name: 'test_collection',
     force_recreate: True
   }
