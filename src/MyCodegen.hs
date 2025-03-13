@@ -79,58 +79,44 @@ generateQdrantVectorParameters pairsDict =
 --   "model" -> ["err: model header not yet implemented"]
 --   "db" -> case snd header of
 --     -- "qdrant" -> generateQdrant keyValuePairs
---     "qdrant" -> [valueToPython (DictVal keyValuePairs)] -- FIXME: We don't check the validity of fields here at all
+--     "qdrant" -> [valueToPython (DictVal keyValuePairs)]
 --     _ -> ["[processMetaValue] error: unimplemented"]
 --   _ -> ["[processMetaValue] error: unimplemented"]
 
 
+-- generateSpace :: Int -> String
+-- generateSpace amount = replicate amount ' '
 
--- if flag_force_create_and_index_collection:
---         qdrant_client.delete_collection(collection_name=collection_name)
---         qdrant_client.create_collection(
---             collection_name=collection_name,
---             shard_number=1,
---             on_disk_payload=False,
---             optimizers_config=models.OptimizersConfigDiff(
---                 indexing_threshold=0,
---             ),
---             vectors_config={
---                 "initial": vector_params_original,
---                 "mean_pooling_rows": vector_params_mean,
---                 "mean_pooling_columns": vector_params_mean,
---             },
---         )
+generateTab :: Int -> String
+generateTab amount = replicate (amount*4) ' '
 
 
 
 
-
-generateCollection :: Map String Value -> String
-generateCollection pairsDict =
+generateQdrantCollection :: Map String Value -> [String]
+generateQdrantCollection pairsDict =
   case pairsDict Map.! "collection_parameters" of
     DictVal cp ->
       let cpMap = Map.fromList cp
           doForceRecreate = cpMap Map.! "force_recreate"
-          collectionName = cpMap Map.! "collection_name"
+          collectionName = cpMap Map.! "name"
       in
-        intercalate "\n"  [
+       (++) (generateTab 1) <$> [
           "    collection_name = " ++ show collectionName,
           "    flag_force_recreate = " ++ show doForceRecreate,
           "    if flag_force_recreate:",
-          if doForceRecreate == (BoolVal True) then "    qdrant_client.delete_collection(collection_name=" ++ show collectionName ++ ")" else "",
-          "qdrant_client.create_collection(",
-          "    collection_name=" ++ show collectionName ++ ",",
-          "    shard_number=1,",
-          "    on_disk_payload=False,",
-          "    optimizers_config=models.OptimizersConfigDiff(",
-          "        indexing_threshold=0,",
-          "    ),",
-          "    vectors_config={",
-          "        \"initial\": vector_params_original,",
-          "        \"mean_pooling_rows\": vector_params_mean,",
-          "        \"mean_pooling_columns\": vector_params_mean,",
-          "    },",
-          ")"
+          if doForceRecreate == (BoolVal True) then (generateTab 2) ++ "qdrant_client.delete_collection(collection_name=" ++ show collectionName ++ ")" else "",
+          (generateTab 2) ++ "qdrant_client.create_collection(",
+          (generateTab 3) ++ "collection_name=" ++ show collectionName ++ ",",
+          (generateTab 3) ++ "shard_number=1,",
+          (generateTab 3) ++ "on_disk_payload=False,",
+          (generateTab 3) ++ "optimizers_config=models.OptimizersConfigDiff(",
+          (generateTab 3) ++ "    indexing_threshold=0,",
+          (generateTab 3) ++ "),",
+          (generateTab 3) ++ "vectors_config={",
+          (generateTab 3) ++ "    \"initial\": vector_params",
+          (generateTab 3) ++ "},",
+          (generateTab 2) ++ ")"
 
         ]
     _ -> error "Error: Vector parameters isn't a map!"
@@ -141,16 +127,22 @@ codegen :: [MetaValue] -> [String]
 -- TODO: intersperse ["\n\n"]
 codegen parsedDslCode =
   let parsedCodeWithMaps = zip (fst <$> parsedDslCode) (Map.fromList . snd <$> parsedDslCode)
+      qdrantMetaValue = case lookup ("db", "qdrant") parsedCodeWithMaps of
+        Just qmv -> qmv
+        Nothing -> error "Qdrant meta value missing"
   in
     (intersperse "\n" generateNecessaryImports)
     ++ ["\n\n"]
     ++ (concat $ intersperse ["\n\n"] (generateNecessarySetups parsedCodeWithMaps))
     ++ ["\n\n"]
-    ++ (intersperse "\n" generateCollection parsedCodeWithMaps)
-    -- ++ (concat $ processMetaValue <$> keyValuePairDicts)
+    ++ intersperse "\n" (generateQdrantCollection qdrantMetaValue)
 
 
 
 -- TODO: Maybe we can make MetaValue' that is like MetaValue but with [KeyValuePair] actually being a Map?
 
 -- TODO: Indent with some function that manipulates strings, not by hand
+-- FIXME: We don't check the validity of fields at all
+
+-- TODO: Solve indentation and if blocks with some functions...
+-- Tab could be a function that accepts the number of spaces
