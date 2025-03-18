@@ -1,3 +1,4 @@
+{-# LANGUAGE InstanceSigs #-}
 module MyParser
   ( Text.Parsec.parse,
     -- codeParser,
@@ -26,7 +27,17 @@ import Text.Parsec
       try )
 import Text.Parsec.String (Parser)
 
-data Value = IntVal Int | StringVal String | BoolVal Bool | ListVal (List Value) | DictVal (List KeyValuePair) deriving (Eq, Show)
+data Value = IntVal Int | StringVal String | BoolVal Bool | ListVal (List Value) | DictVal (List KeyValuePair) deriving (Eq)
+
+
+-- TODO: Make this better
+instance Show Value where
+  show (IntVal a) = show a
+  show (StringVal a) = show a
+  show (BoolVal a) = show a
+  show (ListVal l) = show l
+  show (DictVal d) = show d
+
 
 intValParser :: Parser Value
 intValParser = IntVal <$> (read <$> many1 digit)

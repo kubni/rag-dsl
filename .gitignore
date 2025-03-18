@@ -1,4 +1,4 @@
 *env*
 dist-newstyle/
 data/ideas.org
-python-codegen
+data/*.py

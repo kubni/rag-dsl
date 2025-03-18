@@ -10,4 +10,4 @@ main = do
   let parsedCode = parse dslParser "" codeStr -- type: [MetaValue]
   case parsedCode of
     Left msg -> print msg -- TODO: Handle this better
-    Right metaBlock -> writeFile "python-codegen" (concat $ codegen metaBlock)
+    Right metaBlock -> writeFile "data/python-codegen.py" (concat $ codegen metaBlock)
